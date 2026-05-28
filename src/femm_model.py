@@ -95,9 +95,13 @@ class FemmDrawOptions:
     slot_wedge_mm: float = 2.0                # zagozda — zalivanje glave utora [mm]
 
     # Rotor (brez-dimenzionalno):
-    rotor_pole_arc_frac: float = 0.85         # širina pola / τ_p
+    rotor_pole_arc_frac: float = 0.92         # širina pola / τ_p (povišano z 0.85
+                                              # — pol čevelj sega bližje sosednjima
+                                              # poloma)
     rotor_pole_height_frac: float = 0.17      # globina pola od površine / R_r
-    sinusoidal_curve_factor: float = 80.0 / 90.0   # κ koeficient (primer1, vrstica 178)
+    sinusoidal_curve_factor: float = 85.0 / 90.0   # κ koeficient (povišano z 80/90
+                                              # — sinusna kapica se na robovih
+                                              # globlje potopi v rotor)
     smartmesh_level: int = 0                  # 0 = privzeti FEMM smart mesh
     precision: float = 1e-8                   # natančnost FEMM solverja (FEMM default; ne sprejme < 1e-8)
     mineangle: float = 30                     # min kot mreženja (30° = privzeto FEMM)
