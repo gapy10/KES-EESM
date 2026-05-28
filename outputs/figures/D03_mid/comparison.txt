@@ -1,0 +1,12 @@
+Primerjava — D03_mid
+====================
+Količina           Enota     Analit.       FEMM       Δ%
+--------------------------------------------------------
+U_ind (RMS)        V         200.000    198.532    -0.7
+B_max v zobu       T           1.696      1.512   -10.8
+B_max v jarmu      T           1.104      1.007    -8.8
+Nazivni navor      Nm         68.209     63.079    -7.5
+P_Fe (zobje)       W         433.681    340.431   -21.5
+P_Fe (jarem)       W         327.365    269.034   -17.8
+P_Fe (skupno)      W         761.046    609.466   -19.9
+Izkoristek η       %          96.360     96.642    +0.3

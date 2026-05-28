@@ -1,0 +1,70 @@
+function f=Breza()
+
+load("mere.mat")
+load('konst.mat')
+load("kotMAX");  %elek kot
+
+Rpc=Dr/2;
+Rr=Dr/2;
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%555
+%Brez obremenitve
+
+IDC=Idc;
+IS=Is;
+ar=ar;
+
+t=0; %-4*pi/Q;  %-(2*pi/Pp)-(Q/pi)
+Idc=IDC;
+Is=0;
+Is1=sqrt(2)*Is*sin(t)/a;
+Is2=sqrt(2)*Is*sin(t+2*pi/3)/a;
+Is3=sqrt(2)*Is*sin(t+4*pi/3)/a;
+
+ar=ar;
+
+openfemm;
+newdocument(0); % 0 for magnetics problem
+smartmesh(0);
+rezolucija=1e-8; % original 1e-8
+minangle=30;
+mi_probdef(0, 'meters', 'planar', rezolucija, l, minangle);
+
+izris1(Pp,Q,D,Dr,d,Rs,Rrz,hpc,bdr,ar,br,Ndc,hsz,hs,hys,b1,b2,bdss,bds,fizob,Zq,Idc,m,Is1,Is2,Is3,alfa,Rpc,angle1)
+mi_selectcircle(0,0,Rr,4); %group 1 je cel rotor
+mi_setgroup(1);
+mi_clearselected();
+
+mi_saveas('design1.FEM');
+mi_createmesh;
+mi_analyze(1);
+
+mi_loadsolution;
+
+%oblika B-ja
+n=10000;
+R=Rr+d/2;
+alfa=2*pi;  %/Pp; % celotna krožnica
+ink=alfa/n;
+
+alfa=0;
+for i = 1:n
+    x=R*cos(alfa);
+    y=R*sin(alfa);
+    A(i,:) = mo_getpointvalues(x, y);
+    alfa=alfa+ink;
+    i=i+1;
+end
+
+alfa=(0:ink:alfa-ink)*180/pi;
+B1=A(:,3);
+B2=A(:,2);
+
+B=sqrt((B1.^2)+(B2.^2));
+clear B1 B2
+
+figure()
+grid on
+hold on
+plot(alfa,B)

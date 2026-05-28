@@ -1,0 +1,42 @@
+# Vhodna konfiguracija za KES v7 sinhronski motor.
+# Vsa polja so neobvezna; manjkajoča prevzamejo privzete vrednosti iz src/inputs.py.
+
+machine:
+  m: 3
+  p: 3
+  U_f: 200          # V (faznoRMS)
+  P_c: 50000        # W
+  n_c: 7000         # rpm (vogalna točka)
+  n_max: 14000      # rpm
+  cos_phi: 0.95
+  eta_init: 0.95
+  material: M330-35A
+
+material:
+  rho_fe: 7650
+  k_fe: 0.97
+  k_fe_tooth: 2.0
+  k_fe_yoke: 1.6
+  T_operating: 80
+  K_Cu_stator: 0.38
+  K_Cu_rotor: 0.60
+  J_cu_s_max: 10
+  J_cu_r_max: 5
+
+bounds:
+  D_r_min: 0.100      # m
+  D_r_max: 0.300
+  l_to_D_min: 0.4
+  l_to_D_max: 2.0
+  B_delta_min: 0.6
+  B_delta_max: 1.05
+  B_ds_min: 1.2
+  B_ds_max: 1.7
+  B_sy_min: 1.0
+  B_sy_max: 1.5
+  J_cu_s_min: 3.0
+  J_cu_s_max: 10.0
+  J_cu_r_min: 2.0
+  J_cu_r_max: 5.0
+  N_r_min: 10
+  N_r_max: 80

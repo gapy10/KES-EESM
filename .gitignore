@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Claude Code lokalno stanje
+.claude/
+
+# FEMM analiza (regenerabilno, veliko)
+outputs/fem/*.ans
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Urejevalniki
+.vscode/
+.idea/
+*.swp
