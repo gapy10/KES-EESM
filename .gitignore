@@ -8,8 +8,25 @@ __pycache__/
 # Claude Code lokalno stanje
 .claude/
 
-# FEMM analiza (regenerabilno, veliko)
-outputs/fem/*.ans
+# Izhodni rezultati (generirani z zagonom programa)
+outputs/
+
+# Dokumentacija in opis (niso potrebni za delovanje programa)
+Documents/
+Sinhronc_opis.md
+izgube_fem.txt
+
+# Velike reference (PDF-ji, slike geometrije)
+*.pdf
+*.JPG
+*.jpg
+*.jpeg
+*.png
+
+# Tuji referenčni primeri
+primer1/
+primer2/
+primer3/
 
 # OS
 Thumbs.db
