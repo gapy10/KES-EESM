@@ -1,4 +1,4 @@
-# KES v7 — 6-polni sinhronski motor z vzbujalnim navitjem
+# Konstruiranje električnih strojev — 6-polni sinhronski motor z vzbujalnim navitjem
 
 Programsko orodje za **analitično dimenzioniranje**, **večkriterijsko
 optimizacijo** (NSGA-II: maks. izkoristek, min. volumen) in **FEMM
