@@ -24,10 +24,12 @@ material:
   J_cu_r_max: 5
 
 bounds:
-  D_r_min: 0.100      # m
-  D_r_max: 0.300
-  l_to_D_min: 0.4
-  l_to_D_max: 2.0
+  # Geometrija — sili "daljše in ožje" stroje, da se izognemo preploščati
+  # tehnološko neugodni geometriji (prejšnja l/D = 0.4 ni primerna za izvedbo).
+  D_r_min: 0.130      # m  (manj kot prej 0.100, da damo GA več variacije v ozkih)
+  D_r_max: 0.250      # m  (manj kot prej 0.300, omeji preveč debele rotorje)
+  l_to_D_min: 1.0     # L_r ≥ D_r — strogo "dolgi" stroji
+  l_to_D_max: 2.5     # dovoli tudi izrazito vitke stroje
   B_delta_min: 0.6
   B_delta_max: 1.05
   B_ds_min: 1.2
@@ -40,3 +42,9 @@ bounds:
   J_cu_r_max: 5.0
   N_r_min: 10
   N_r_max: 80
+  # Q_s = 2*p*m*q  ⇒  q=2 ⇒ Q_s=36.
+  # Pri manjšem D_r (130–188 mm) z l/D≥1 q∈{2.5,3} ustvarja zelo ozke zobje
+  # (Q_s=45/54), kar pri FEMM povzroči eksplozijo mreže in ~10× počasnejši
+  # solver. Pri starem zagonu je GA tako ali tako za vseh 5 designov izbral
+  # q=2 — zato to fiksiramo tudi tu.
+  q_choices: [2.0]
