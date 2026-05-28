@@ -123,7 +123,7 @@ class MotorDesign:
     m_fe_tooth_s: float = 0.0   # masa vseh statorskih zob [kg]
     m_fe_yoke_s: float = 0.0    # masa statorskega jarma [kg]
 
-    # --- izgube in izkoristek ---
+    # --- izgube in izkoristek (kalibrirano glede na FEMM, glej MaterialParams) ---
     P_fe_tooth: float = 0.0     # izgube v statorskih zobeh [W]
     P_fe_yoke: float = 0.0      # izgube v statorskem jarmu [W]
     P_fe_total: float = 0.0     # skupne izgube v železu [W]
@@ -132,6 +132,10 @@ class MotorDesign:
     P_cu_total: float = 0.0     # skupne bakrene izgube [W]
     P_loss_total: float = 0.0   # P_Fe + P_Cu [W]
     eta: float = 0.0            # izkoristek [-]
+
+    # --- FEMM napovedne vrednosti (na podlagi kalibracijskih faktorjev) ---
+    M_FEMM_pred: float = 0.0    # napoved FEMM navora 1. harmonske [Nm]
+                                # = k_femm_torque · M_c (typically ~0.88·M_c)
 
     # --- aktivni volumen (cilj GA optimizacije) ---
     V_active: float = 0.0       # π * (D_se/2)^2 * L_r [m^3]
@@ -381,17 +385,28 @@ def analyze(
     # Frekvenca v vogalni točki:
     f_c = machine.freq_c
 
+    # FEMM-realistična napoved gostote v zobu in jarmu: dejanska FEMM B
+    # je tipično ~0.86-krat manjša od projektiranega cilja (saturacija
+    # nelinearne B-H krivulje + sklenjeno magnetno krogotokovje). Uporabimo
+    # to za bolj realno napoved izgub v železu.
+    B_ds_pred = genes.B_ds * material.k_B_femm_factor
+    B_sy_pred = genes.B_sy * material.k_B_femm_factor
     d.P_fe_tooth = loss_model.total_loss(
-        B=genes.B_ds, f=f_c, mass_kg=m_tooth, k_form=material.k_fe_tooth
+        B=B_ds_pred, f=f_c, mass_kg=m_tooth, k_form=material.k_fe_tooth
     )
     d.P_fe_yoke = loss_model.total_loss(
-        B=genes.B_sy, f=f_c, mass_kg=m_yoke, k_form=material.k_fe_yoke
+        B=B_sy_pred, f=f_c, mass_kg=m_yoke, k_form=material.k_fe_yoke
     )
     d.P_fe_total = d.P_fe_tooth + d.P_fe_yoke
 
     # -- 12) Izkoristek -------------------------------------------------------
     d.P_loss_total = d.P_fe_total + d.P_cu_total
     d.eta = machine.P_c / (machine.P_c + d.P_loss_total)
+
+    # -- 12.b) FEMM napovedne vrednosti --------------------------------------
+    # Analitičen M_c je P_c/ω; FEMM zaradi nasičenosti in harmonikov tipično
+    # doseže k_femm_torque · M_c (kalibrirano iz povprečja 5 designov: ~0.88).
+    d.M_FEMM_pred = machine.torque_c * material.k_femm_torque
 
     # -- 13) Preverjanje izvedljivosti ---------------------------------------
     if d.J_cu_s_actual > material.J_cu_s_max + 1e-3:
@@ -466,6 +481,10 @@ def pretty_print(d: MotorDesign) -> str:
         f"",
         f"Volumen aktivnega dela: {d.V_active*1e6:.1f} cm³",
         f"Izkoristek η = {d.eta*100:.2f} %",
+        f"",
+        f"FEMM napoved (kalibracija iz prejšnjih simulacij):",
+        f"  M_FEMM_pred = {d.M_FEMM_pred:.2f} Nm   "
+        f"(analit. M_c = {d.M_FEMM_pred / 0.88:.2f} Nm × 0.88)",
     ]
     if not d.feasible:
         lines.append("")

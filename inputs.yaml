@@ -20,8 +20,13 @@ machine:
 material:
   rho_fe: 7650
   k_fe: 0.97
-  k_fe_tooth: 2.0
-  k_fe_yoke: 1.6
+  k_fe_tooth: 2.0           # nazaj na originalno (privzeto), ker faktor velja
+  k_fe_yoke: 1.6            # tako za analitiko kot za FEMM post-procesiranje
+  # FEMM kalibracija (NOVO, prinaša bistveno boljše ujemanje s simulacijo):
+  k_B_femm_factor: 0.86     # B_FEMM/B_target — analitika napoveduje izgube
+                            # iz dejanskega FEMM B (saturacija B-H krivulje
+                            # zniža realni B za ~14 % od projektiranega cilja)
+  k_femm_torque: 0.88       # M_FEMM/M_c — predikcija FEMM navora
   T_operating: 80
   K_Cu_stator: 0.38
   K_Cu_rotor: 0.60

@@ -90,9 +90,27 @@ class MaterialParams:
     # Železo M330-35A (Sura/Cogent)
     rho_fe: float = 7650.0          # gostota železa [kg/m^3]
     k_fe: float = 0.97              # polnilni faktor lameliranja [-]
-    k_fe_tooth: float = 2.0         # empirični povečevalni faktor izgub v zobu
-    k_fe_yoke: float = 1.6          # empirični povečevalni faktor izgub v jarmu
-    # Vir za k_fe_tooth, k_fe_yoke: izgube_fem.txt + Pyrhönen str. 553-556.
+    # Empirična ojačitvena faktorja izgub (iz izgube_fem.txt + Pyrhönen
+    # str. 553-556) — pokrivata vpliv nehomogenosti B v zobu (sredina ima
+    # manj, robovi več) in rotacijskega magnetenja v jarmu. Te faktorji
+    # se uporabljajo TAKO v analitiki KOT v FEMM post-procesiranju, zato
+    # ne ustvarjajo razlike med njima.
+    k_fe_tooth: float = 2.0
+    k_fe_yoke: float = 1.6
+
+    # FEMM KALIBRACIJA — napove dejansko FEMM obnašanje na podlagi
+    # opazovanj iz 5+ designov:
+    #
+    # 1) Faktor saturacije B v železu: analitika cilja B_ds=1.7, FEMM pa
+    #    izmeri ~1.46 (razmerje 0.86), ker rotor-stator nelinearnost ne
+    #    podpre projektirane gostote. Posledica: P_Fe v izgube_fem
+    #    polinomu, ki je ~B², bo realno ~0.86² = 0.74-krat manjši.
+    k_B_femm_factor: float = 0.86   # B_FEMM / B_target za predikcijo izgub
+
+    # 2) Faktor navora: analitika daje M_c = P_c/ω, FEMM pa zaradi
+    #    saturacije in winding harmonikov tipično doseže 85-90 % te
+    #    vrednosti. M_FEMM_pred = k_femm_torque * M_c.
+    k_femm_torque: float = 0.88     # FEMM/analit. razmerje za M_1.harm
 
     # Baker
     sigma_cu_20: float = 34e6       # specifična prevodnost pri 20 °C [S/m]
