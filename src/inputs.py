@@ -39,7 +39,10 @@ class MachineInputs:
 
     # Električni nazivni podatki
     U_f: float = 200.0          # nazivna fazna napetost, RMS [V]
-    P_c: float = 50_000.0       # nazivna moč v vogalni točki [W]
+    P_c: float = 50_000.0       # nazivna moč v vogalni točki [W] (analitično)
+    P_c_min_FEMM: float = 50_000.0  # MINIMALNA P (= M·ω) ki jo mora design
+                                    # dejansko doseči v FEMM (specifikacija
+                                    # naloge: 50 kW pri 7000 rpm)
     n_c: float = 7000.0         # mehanska hitrost v vogalni točki [vrt/min]
     n_max: float = 14_000.0     # najvišja obratovalna hitrost [vrt/min]
 
@@ -107,10 +110,23 @@ class MaterialParams:
     #    polinomu, ki je ~B², bo realno ~0.86² = 0.74-krat manjši.
     k_B_femm_factor: float = 0.86   # B_FEMM / B_target za predikcijo izgub
 
-    # 2) Faktor navora: analitika daje M_c = P_c/ω, FEMM pa zaradi
-    #    saturacije in winding harmonikov tipično doseže 85-90 % te
-    #    vrednosti. M_FEMM_pred = k_femm_torque * M_c.
-    k_femm_torque: float = 0.88     # FEMM/analit. razmerje za M_1.harm
+    # 2) Faktor navora — DESIGN-ODVISEN: M_FEMM/M_c razmerje variira
+    #    od 0.69 (visoka saturacija) do 0.90 (zmerna saturacija, visok J).
+    #    Empirična linearna regresija iz 10 FEMM simulacij (2 batch-a):
+    #
+    #       k_M = k_M_base + k_M_Bd_coef·B_delta
+    #                      + k_M_Bsy_coef·B_sy
+    #                      + k_M_Jcu_coef·J_cu_s
+    #
+    #    RMS residual 3.2 %, max razkorak 6 %. Ključen vpogled: B_delta
+    #    ima NEGATIVEN koeficient (višji B_δ → bolj saturirana zr. reža
+    #    → manjši efektivni navor). J_cu_s pozitiven (več statorskega
+    #    toka = več MMF). B_sy skoraj brez vpliva.
+    k_femm_torque: float = 0.78     # globalna povprečna baseline (info)
+    k_M_base: float = 0.858         # konstanta regresije
+    k_M_Bd_coef: float = -0.362     # vpliv B_delta [T]
+    k_M_Bsy_coef: float = -0.017    # vpliv B_sy [T]
+    k_M_Jcu_coef: float = 0.040     # vpliv J_cu_s [A/mm²]
 
     # Baker
     sigma_cu_20: float = 34e6       # specifična prevodnost pri 20 °C [S/m]

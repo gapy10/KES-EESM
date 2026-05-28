@@ -74,7 +74,7 @@ class MotorOptimizationProblem(Problem):
 
     N_VAR = 9
     N_OBJ = 2
-    N_CONSTR = 3
+    N_CONSTR = 4    # +1 omejitev: M_FEMM_pred >= P_c_min_FEMM / omega_mech
 
     def __init__(
         self,
@@ -152,9 +152,16 @@ class MotorOptimizationProblem(Problem):
         g2 = d.J_cu_r_actual - self.material.J_cu_r_max
         # Ostale geometrijske kršitve iz `analyze()` — vsaka po 1.0 v CV:
         g3 = -1.0 if d.feasible else float(len(d.infeasibility_reasons))
+        # Zahteva specifikacije naloge: FEMM-predikcija navora mora doseči
+        # vsaj M_min = P_c_min_FEMM / omega_mech (= 68.21 Nm pri 50 kW spec).
+        # M_FEMM_pred je design-odvisen (empirična regresija iz 5 FEMM točk),
+        # zato ta omejitev DEJANSKO filtrira designi po pričakovanem FEMM
+        # navoru, ne le po analitičnem M_c.
+        M_femm_min = self.machine.P_c_min_FEMM / self.machine.omega_mech
+        g4 = M_femm_min - d.M_FEMM_pred
 
         f = np.array([f1, f2])
-        g = np.array([g1, g2, g3])
+        g = np.array([g1, g2, g3, g4])
         return d, f, g
 
     # ------------------------------------------------------------------ pymoo API

@@ -404,9 +404,19 @@ def analyze(
     d.eta = machine.P_c / (machine.P_c + d.P_loss_total)
 
     # -- 12.b) FEMM napovedne vrednosti --------------------------------------
-    # Analitičen M_c je P_c/ω; FEMM zaradi nasičenosti in harmonikov tipično
-    # doseže k_femm_torque · M_c (kalibrirano iz povprečja 5 designov: ~0.88).
-    d.M_FEMM_pred = machine.torque_c * material.k_femm_torque
+    # DESIGN-ODVISNA empirična napoved FEMM/analit. razmerja navora.
+    # Linearna regresija iz 10 FEMM simulacij (2 zaganja, 5 designov vsak):
+    #   k_M = 0.858 - 0.362·B_delta - 0.017·B_sy + 0.040·J_cu_s
+    # RMS 3.2 %, max razkorak 6 %.
+    k_M_design = (
+        material.k_M_base
+        + material.k_M_Bd_coef  * genes.B_delta
+        + material.k_M_Bsy_coef * genes.B_sy
+        + material.k_M_Jcu_coef * genes.J_cu_s
+    )
+    # Klampiranje za numerične artefakte zunaj domene regresije:
+    k_M_design = max(0.5, min(1.0, k_M_design))
+    d.M_FEMM_pred = machine.torque_c * k_M_design
 
     # -- 13) Preverjanje izvedljivosti ---------------------------------------
     if d.J_cu_s_actual > material.J_cu_s_max + 1e-3:

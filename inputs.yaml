@@ -6,11 +6,15 @@ machine:
   p: 3
   U_f: 190          # V (faznoRMS) — znižano s 200 V, da po FEMM zaokroževanju
                     # N_s navzgor pridemo blizu 190 V (uporabnikova zahteva)
-  P_c: 60000        # W (povečano s 50 kW). Pri P_c=56 kW GA izbira manjše
-                    # stroje z višjim B_δ in saturiranim železom, FEMM pa je
-                    # dosegel le 64 Nm (M_c = 76.4). S P_c=60 kW analitično
-                    # M_c = 81.85 Nm; FEMM pri ~90 % ujemanju da M ≈ 73 Nm.
-                    # Volumen naraste ~20 % v skladu s povišanjem nazivne moči.
+  P_c: 70000        # W (analitično povečano za FEMM realnost).
+                    # Iz 10 FEMM simulacij smo izvedli linearno regresijo:
+                    #   k_M = 0.858 - 0.362·B_δ - 0.017·B_sy + 0.040·J_cu_s
+                    # Range observovano k_M: 0.69 do 0.90.
+                    # P_c = 70 kW → M_c = 95.5 Nm; GA omejitev M_FEMM_pred ≥
+                    # 68.21 Nm pomeni k_M ≥ 0.715 — filtrira designi z
+                    # visokim B_δ / nizkim J_cu_s. Volumen ~24 % nad 50 kW spec.
+  P_c_min_FEMM: 50000  # W — minimalna mehanska moč ki jo design mora
+                       # zagotoviti v FEMM verifikaciji (spec naloge: 50 kW)
   n_c: 7000         # rpm (vogalna točka)
   n_max: 14000      # rpm
   cos_phi: 0.95
