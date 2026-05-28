@@ -27,7 +27,11 @@ material:
 bounds:
   # Geometrija — zožan V razpon na 3500–8000 cm³ in proporcionalni stroji.
   D_r_min: 0.140      # m (V_min ≈ 3700 cm³ pri l/D = 0.7)
-  D_r_max: 0.195      # m (V_max ≈ 8000 cm³ pri l/D = 0.7)
+  D_r_max: 0.195      # m (V_max ≈ 8300 cm³ pri l/D = 0.7)
+                      # Opomba: poskus razširitve na 0.220 m je padel navor
+                      # — GA s preselektiral na sredinske stroje z manj železa,
+                      # M je padel za 5-12 Nm. Pravilo M ∝ D²·L pri V=const
+                      # tu deluje proti nam.
   l_to_D_min: 0.7
   l_to_D_max: 2.5
   B_delta_min: 1.00   # povišano z 0.6 — prisili GA, da izbira stroje z visokim
