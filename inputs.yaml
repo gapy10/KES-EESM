@@ -4,7 +4,8 @@
 machine:
   m: 3
   p: 3
-  U_f: 200          # V (faznoRMS)
+  U_f: 190          # V (faznoRMS) — znižano s 200 V, da po FEMM zaokroževanju
+                    # N_s navzgor pridemo blizu 190 V (uporabnikova zahteva)
   P_c: 50000        # W
   n_c: 7000         # rpm (vogalna točka)
   n_max: 14000      # rpm
@@ -24,15 +25,17 @@ material:
   J_cu_r_max: 5
 
 bounds:
-  # Geometrija — sili "daljše in ožje" stroje, da se izognemo preploščati
-  # tehnološko neugodni geometriji (prejšnja l/D = 0.4 ni primerna za izvedbo).
-  D_r_min: 0.130      # m  (manj kot prej 0.100, da damo GA več variacije v ozkih)
-  D_r_max: 0.250      # m  (manj kot prej 0.300, omeji preveč debele rotorje)
-  l_to_D_min: 0.7     # proporcionalni stroji, ni strogo 1:1; preprečuje
-                      # preploščati izvedbi pri prejšnjem l/D = 0.4
-  l_to_D_max: 2.5     # dovoli tudi izrazito vitke stroje
-  B_delta_min: 0.6
-  B_delta_max: 1.05
+  # Geometrija — zožan V razpon na 3500–8000 cm³ in proporcionalni stroji.
+  D_r_min: 0.140      # m (V_min ≈ 3700 cm³ pri l/D = 0.7)
+  D_r_max: 0.195      # m (V_max ≈ 8000 cm³ pri l/D = 0.7)
+  l_to_D_min: 0.7
+  l_to_D_max: 2.5
+  B_delta_min: 1.00   # povišano z 0.6 — prisili GA, da izbira stroje z visokim
+                      # magnetnim potencialom (sicer GA optimizira η in izbira
+                      # nižji B_δ, kar daje premajhen navor). FEMM navor sistemsko
+                      # doseže ~85 % analitičnega cilja zaradi saturacije v zobu
+                      # in harmonikov; B_δ ≥ 1.10 ne pomaga več (zob nasičen).
+  B_delta_max: 1.20
   B_ds_min: 1.2
   B_ds_max: 1.7
   B_sy_min: 1.0
