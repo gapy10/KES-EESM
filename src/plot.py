@@ -271,17 +271,73 @@ def plot_uind(
     return out_path
 
 
+def _roll_torque_to_zero_start(
+    theta_deg: np.ndarray, torque: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Premakni navorno krivuljo tako, da se začne pri M ≈ 0, gre v pozitivno,
+    nato v negativno, in se vrne na 0.
+
+    FEMM sweep začne pri rotorju, poravnanem z osjo faze A (peak navorne
+    karakteristike), kar daje cos-obliko. Za "sinusno" prikaz cikel zarotiramo
+    tako, da se prikaz prične na naraščajočem prehodu skozi ničlo.
+    """
+    M = np.asarray(torque, dtype=float)
+    th = np.asarray(theta_deg, dtype=float)
+    n = len(M)
+    if n < 4:
+        return th, M
+
+    # Odstrani zadnjo točko, če je enaka prvi (zaprt cikel, zadnja = prva):
+    if np.isclose(M[0], M[-1], rtol=0.05, atol=0.5):
+        M_open = M[:-1].copy()
+    else:
+        M_open = M.copy()
+    n_open = len(M_open)
+
+    # Najdi prvo mesto naraščajočega prehoda skozi 0 (M[i-1] < 0 in M[i] ≥ 0).
+    zero_idx = None
+    for i in range(n_open):
+        prev = M_open[(i - 1) % n_open]
+        curr = M_open[i]
+        if prev < 0 <= curr:
+            zero_idx = i
+            break
+    if zero_idx is None:
+        return th, M
+
+    M_rolled = np.concatenate([M_open[zero_idx:], M_open[:zero_idx]])
+    # Zaprite cikel: dodaj prvo vrednost na konec, da se sklene.
+    M_rolled = np.append(M_rolled, M_rolled[0])
+    if len(M_rolled) != n:
+        # Če smo pred tem odstranili konec, dodaj eno točko na konec th.
+        if len(M_rolled) == n_open + 1 == n:
+            return th, M_rolled
+        # Drugače obreži ali podaljšaj:
+        if len(M_rolled) > n:
+            M_rolled = M_rolled[:n]
+        else:
+            M_rolled = np.append(M_rolled,
+                                 [M_rolled[-1]] * (n - len(M_rolled)))
+    return th, M_rolled
+
+
 def plot_torque(
     theta_deg: np.ndarray,
     torque: np.ndarray,
     out_path: str | Path,
     title: str = "Navor M(θ)",
 ) -> Path:
-    """Graf navorne karakteristike v odvisnosti od kolesnega kota."""
+    """Graf navorne karakteristike v odvisnosti od kolesnega kota.
+
+    Cikel je preusmerjen tako, da se začne pri M = 0 in poteka
+    0 → +M_max → 0 → −M_max → 0 (sinusna oblika).
+    """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    th, M = _roll_torque_to_zero_start(theta_deg, torque)
     fig, ax = plt.subplots(figsize=(7, 4), dpi=DPI)
-    ax.plot(theta_deg, torque, color="#2ca02c")
+    ax.plot(th, M, color="#2ca02c")
+    ax.axhline(0, color="#888", lw=0.6)
     ax.set_xlabel("Kolesni kot θ [°]")
     ax.set_ylabel("M [Nm]")
     ax.set_title(title)

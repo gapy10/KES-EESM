@@ -28,7 +28,8 @@ bounds:
   # tehnološko neugodni geometriji (prejšnja l/D = 0.4 ni primerna za izvedbo).
   D_r_min: 0.130      # m  (manj kot prej 0.100, da damo GA več variacije v ozkih)
   D_r_max: 0.250      # m  (manj kot prej 0.300, omeji preveč debele rotorje)
-  l_to_D_min: 1.0     # L_r ≥ D_r — strogo "dolgi" stroji
+  l_to_D_min: 0.7     # proporcionalni stroji, ni strogo 1:1; preprečuje
+                      # preploščati izvedbi pri prejšnjem l/D = 0.4
   l_to_D_max: 2.5     # dovoli tudi izrazito vitke stroje
   B_delta_min: 0.6
   B_delta_max: 1.05

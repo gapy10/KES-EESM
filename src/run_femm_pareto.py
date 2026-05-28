@@ -32,7 +32,7 @@ import femm
 import numpy as np
 import pandas as pd
 
-from .inputs import MachineInputs, MaterialParams, DesignBounds
+from .inputs import MachineInputs, MaterialParams, DesignBounds, load_from_yaml
 from .losses import IronLossModel
 from .analytical import MotorDesignGenes, analyze
 from .femm_model import build_motor
@@ -70,6 +70,9 @@ def parse_args(argv=None):
     p.add_argument("--skip-noload", action="store_true")
     p.add_argument("--skip-torque", action="store_true")
     p.add_argument("--out", default="outputs", help="Izhodni imenik")
+    p.add_argument("--config", default="inputs.yaml",
+                   help="YAML z bounds (potreben za pravilno dekodiranje alternativ "
+                        "iz pareto.npz; mora se ujemati s tistim, ki ga je uporabil GA)")
     return p.parse_args(argv)
 
 
@@ -134,8 +137,15 @@ def main(argv=None) -> int:
     fem_dir.mkdir(parents=True, exist_ok=True)
     fig_root.mkdir(parents=True, exist_ok=True)
 
-    machine = MachineInputs()
-    material = MaterialParams()
+    # Za pravilno dekodiranje alternativnih Pareto rešitev nujno uporabimo
+    # iste bounds (predvsem `q_choices`), kot jih je uporabil GA.
+    cfg_path = Path(args.config)
+    if cfg_path.exists():
+        machine, material, bounds = load_from_yaml(cfg_path)
+    else:
+        machine = MachineInputs()
+        material = MaterialParams()
+        bounds = DesignBounds()
     loss = IronLossModel.fit_default()
 
     full_data = json.loads(Path(args.selected).read_text(encoding="utf-8"))
@@ -156,7 +166,7 @@ def main(argv=None) -> int:
     all_F = pareto_data["F"]           # (N, 2): (1/η−1, V_active)
     all_X = pareto_data["X"]           # (N, 9)
     decode_problem = MotorOptimizationProblem(
-        machine, material, DesignBounds(), loss
+        machine, material, bounds, loss
     )
 
     # Pri --only ohranimo Pareto indekse že uspešnih rešitev iz prejšnjega
