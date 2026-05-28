@@ -6,7 +6,11 @@ machine:
   p: 3
   U_f: 190          # V (faznoRMS) — znižano s 200 V, da po FEMM zaokroževanju
                     # N_s navzgor pridemo blizu 190 V (uporabnikova zahteva)
-  P_c: 50000        # W
+  P_c: 60000        # W (povečano s 50 kW). Pri P_c=56 kW GA izbira manjše
+                    # stroje z višjim B_δ in saturiranim železom, FEMM pa je
+                    # dosegel le 64 Nm (M_c = 76.4). S P_c=60 kW analitično
+                    # M_c = 81.85 Nm; FEMM pri ~90 % ujemanju da M ≈ 73 Nm.
+                    # Volumen naraste ~20 % v skladu s povišanjem nazivne moči.
   n_c: 7000         # rpm (vogalna točka)
   n_max: 14000      # rpm
   cos_phi: 0.95
