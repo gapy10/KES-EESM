@@ -30,30 +30,31 @@ material:
 
 bounds:
   # Geometrija — zožan V razpon na 3500–8000 cm³ in proporcionalni stroji.
-  D_r_min: 0.140      # m (V_min ≈ 3700 cm³ pri l/D = 0.7)
-  D_r_max: 0.195      # m (V_max ≈ 8300 cm³ pri l/D = 0.7)
-                      # Opomba: poskus razširitve na 0.220 m je padel navor
-                      # — GA s preselektiral na sredinske stroje z manj železa,
-                      # M je padel za 5-12 Nm. Pravilo M ∝ D²·L pri V=const
-                      # tu deluje proti nam.
+  # Zaostreno glede na D05 "sweet-spot" analizo:
+  # D05 dosega največji M (73.5 Nm), najnižji THD (11.5%), U_ind blizu 190V,
+  # ker je ekstremen v B_sy=1.50, J_cu_s=10.0, B_ds=1.69 (vsi na mejah).
+  # Te meje sedaj zaostrimo, da GA preferira tovrstne "kompaktne, gostonatovorjene"
+  # stroje — več designov na Pareto fronti bo D05-tipa.
+  D_r_min: 0.135      # m
+  D_r_max: 0.180      # m  (zožano z 0.195 → manjši stroji v ospredju)
   l_to_D_min: 0.7
   l_to_D_max: 2.5
-  B_delta_min: 1.00   # povišano z 0.6 — prisili GA, da izbira stroje z visokim
-                      # magnetnim potencialom (sicer GA optimizira η in izbira
-                      # nižji B_δ, kar daje premajhen navor). FEMM navor sistemsko
-                      # doseže ~85 % analitičnega cilja zaradi saturacije v zobu
-                      # in harmonikov; B_δ ≥ 1.10 ne pomaga več (zob nasičen).
-  B_delta_max: 1.20
-  B_ds_min: 1.2
+  B_delta_min: 1.00
+  B_delta_max: 1.15   # zožano z 1.20 — preprečuje pretirano nasičenost zr. reže
+  B_ds_min: 1.55      # povišano z 1.2 — vsi D05-like stroji so blizu 1.7
   B_ds_max: 1.7
-  B_sy_min: 1.0
+  B_sy_min: 1.30      # povišano z 1.0 — kompakten statorski jarem (D05 ima 1.50)
   B_sy_max: 1.5
-  J_cu_s_min: 3.0
+  J_cu_s_min: 7.0     # povišano z 3.0 — visoka gostota toka v statorju
   J_cu_s_max: 10.0
   J_cu_r_min: 2.0
   J_cu_r_max: 5.0
-  N_r_min: 10
+  N_r_min: 50         # zaostreno z 10 — prisili visok N_r kot pri D05 (N_r=55),
+                      # kar daje večji F_m = N_r·I_m za isti analitični B_δ →
+                      # višji FEMM navor. GA bi sicer izbral N_r 28-38 zaradi
+                      # η optimizacije, kar pa daje manj MMF in manj navora.
   N_r_max: 80
+  q_choices: [2.0]
   # Q_s = 2*p*m*q  ⇒  q=2 ⇒ Q_s=36.
   # Pri manjšem D_r (130–188 mm) z l/D≥1 q∈{2.5,3} ustvarja zelo ozke zobje
   # (Q_s=45/54), kar pri FEMM povzroči eksplozijo mreže in ~10× počasnejši
