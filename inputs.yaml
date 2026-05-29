@@ -45,7 +45,7 @@ bounds:
   # Te meje sedaj zaostrimo, da GA preferira tovrstne "kompaktne, gostonatovorjene"
   # stroje — več designov na Pareto fronti bo D05-tipa.
   D_r_min: 0.135      # m
-  D_r_max: 0.180      # m  (zožano z 0.195 → manjši stroji v ospredju)
+  D_r_max: 0.165      # m (zožano z 0.180 → V_max ≈ 6000 cm³)
   l_to_D_min: 0.7
   l_to_D_max: 2.5
   B_delta_min: 1.00
