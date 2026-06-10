@@ -110,23 +110,17 @@ class MaterialParams:
     #    polinomu, ki je ~B², bo realno ~0.86² = 0.74-krat manjši.
     k_B_femm_factor: float = 0.86   # B_FEMM / B_target za predikcijo izgub
 
-    # 2) Faktor navora — DESIGN-ODVISEN: M_FEMM/M_c razmerje variira
-    #    od 0.69 (visoka saturacija) do 0.90 (zmerna saturacija, visok J).
-    #    Empirična linearna regresija iz 10 FEMM simulacij (2 batch-a):
-    #
-    #       k_M = k_M_base + k_M_Bd_coef·B_delta
-    #                      + k_M_Bsy_coef·B_sy
-    #                      + k_M_Jcu_coef·J_cu_s
-    #
-    #    RMS residual 3.2 %, max razkorak 6 %. Ključen vpogled: B_delta
-    #    ima NEGATIVEN koeficient (višji B_δ → bolj saturirana zr. reža
-    #    → manjši efektivni navor). J_cu_s pozitiven (več statorskega
-    #    toka = več MMF). B_sy skoraj brez vpliva.
-    k_femm_torque: float = 0.78     # globalna povprečna baseline (info)
-    k_M_base: float = 0.858         # konstanta regresije
-    k_M_Bd_coef: float = -0.362     # vpliv B_delta [T]
-    k_M_Bsy_coef: float = -0.017    # vpliv B_sy [T]
-    k_M_Jcu_coef: float = 0.040     # vpliv J_cu_s [A/mm²]
+    # FEMM-verificiran navor na enoto statorskega toka glede na analitično
+    # napoved. Idealni tok I_n_ideal = P_c/(η·m·cosφ·U_f) v FEMM proizvede le
+    # ~0.96-kratnik nazivnega navora (analitika rahlo preceni navor na amper:
+    # nasičenje, harmoniki, faktor navitja). Zato nazivni tok rahlo korigiramo
+    # I_n = I_n_ideal / k_torque_femm (≈ +3.7 %), da stroj v FEMM DEJANSKO doda
+    # nazivnih 50 kW (M_c = 68.2 Nm) — umerjeno tako, da FEMM navor doseže
+    # nazivnega. To je kalibracija na POŠTENIH 50 kW, NE napihovanje (prejšnja
+    # ~40 % korekcija, ki je silila navor 20–35 % nad nazivnega, je odstranjena).
+    # U_ind ostane nespremenjen (prosti tek), J_cu_s ostane = genu (presek raste
+    # z I), J_cu_r nedotaknjen — oba znotraj mej.
+    k_torque_femm: float = 0.964
 
     # Baker
     sigma_cu_20: float = 34e6       # specifična prevodnost pri 20 °C [S/m]

@@ -4,17 +4,14 @@
 machine:
   m: 3
   p: 3
-  U_f: 190          # V (faznoRMS) — znižano s 200 V, da po FEMM zaokroževanju
-                    # N_s navzgor pridemo blizu 190 V (uporabnikova zahteva)
-  P_c: 70000        # W (analitično povečano za FEMM realnost).
-                    # Iz 10 FEMM simulacij smo izvedli linearno regresijo:
-                    #   k_M = 0.858 - 0.362·B_δ - 0.017·B_sy + 0.040·J_cu_s
-                    # Range observovano k_M: 0.69 do 0.90.
-                    # P_c = 70 kW → M_c = 95.5 Nm; GA omejitev M_FEMM_pred ≥
-                    # 68.21 Nm pomeni k_M ≥ 0.715 — filtrira designi z
-                    # visokim B_δ / nizkim J_cu_s. Volumen ~24 % nad 50 kW spec.
-  P_c_min_FEMM: 50000  # W — minimalna mehanska moč ki jo design mora
-                       # zagotoviti v FEMM verifikaciji (spec naloge: 50 kW)
+  U_f: 200          # V (fazna RMS) — napajalna (sponkovna) napetost = U_grid,
+                    # skladno z opisom naloge. Tok računamo z 200 V; EMS
+                    # prostega teka pa dimenzioniramo na ≤ 0.95·U_grid = 190 V
+                    # (točka L), z rezervo prek emf_target_factor v analitiki.
+  P_c: 50000        # W — nazivna moč v vogalni točki (spec naloge: 50 kW pri
+                    # 7000 rpm). M_c = P_c/ω_meh = 68.21 Nm. Model targetira
+                    # poštene 50 kW; dejanski FEMM navor je rezultat verifikacije.
+  P_c_min_FEMM: 50000  # W — informativno (spec naloge). Ni GA omejitev.
   n_c: 7000         # rpm (vogalna točka)
   n_max: 14000      # rpm
   cos_phi: 0.95
@@ -26,11 +23,10 @@ material:
   k_fe: 0.97
   k_fe_tooth: 2.0           # nazaj na originalno (privzeto), ker faktor velja
   k_fe_yoke: 1.6            # tako za analitiko kot za FEMM post-procesiranje
-  # FEMM kalibracija (NOVO, prinaša bistveno boljše ujemanje s simulacijo):
-  k_B_femm_factor: 0.86     # B_FEMM/B_target — analitika napoveduje izgube
-                            # iz dejanskega FEMM B (saturacija B-H krivulje
-                            # zniža realni B za ~14 % od projektiranega cilja)
-  k_femm_torque: 0.88       # M_FEMM/M_c — predikcija FEMM navora
+  # FEMM kalibracija B za predikcijo izgub (saturacija B-H krivulje zniža
+  # realni B za ~14 % od projektiranega cilja):
+  k_B_femm_factor: 0.86     # B_FEMM/B_target — analitika napoveduje izgube iz
+                            # dejanskega FEMM B. (Navorne korekcije toka NI več.)
   T_operating: 80
   K_Cu_stator: 0.38
   K_Cu_rotor: 0.60
@@ -38,35 +34,30 @@ material:
   J_cu_r_max: 5
 
 bounds:
-  # Geometrija — zožan V razpon na 3500–8000 cm³ in proporcionalni stroji.
-  # Zaostreno glede na D05 "sweet-spot" analizo:
-  # D05 dosega največji M (73.5 Nm), najnižji THD (11.5%), U_ind blizu 190V,
-  # ker je ekstremen v B_sy=1.50, J_cu_s=10.0, B_ds=1.69 (vsi na mejah).
-  # Te meje sedaj zaostrimo, da GA preferira tovrstne "kompaktne, gostonatovorjene"
-  # stroje — več designov na Pareto fronti bo D05-tipa.
-  D_r_min: 0.135      # m
-  D_r_max: 0.165      # m (zožano z 0.180 → V_max ≈ 6000 cm³)
-  l_to_D_min: 0.7
-  l_to_D_max: 2.5
-  B_delta_min: 1.00
-  B_delta_max: 1.15   # zožano z 1.20 — preprečuje pretirano nasičenost zr. reže
-  B_ds_min: 1.55      # povišano z 1.2 — vsi D05-like stroji so blizu 1.7
-  B_ds_max: 1.7
-  B_sy_min: 1.30      # povišano z 1.0 — kompakten statorski jarem (D05 ima 1.50)
-  B_sy_max: 1.5
-  J_cu_s_min: 7.0     # povišano z 3.0 — visoka gostota toka v statorju
-  J_cu_s_max: 10.0
+  # Realne inženirske meje (po odstranitvi nekdanjih "D05-tip" hackov, ki so
+  # silili nasičene zobe/jarme in napihovali tok). Magnetne obremenitve so
+  # zdaj v tipičnih oknih za neorientirano pločevino M330-35A:
+  #   B_δ 0.85–1.05 T (amplituda v zr. reži), B_zob ≤ 1.7 T, B_jarem ≤ 1.5 T.
+  # l/D ≥ 1.0 prepreči tehnološko neugodne ploščate stroje (zahteva opisa
+  # naloge: "ne preveč ploščati motorji z velikim radijem in majhno dolžino").
+  D_r_min: 0.145      # m — pod ~0.145 m FEMM ne zgradi vseh regij ("Material
+                      # properties not defined for all regions"); empirično
+                      # potrjeno (135/140 padeta, 145/150 zgradita).
+  D_r_max: 0.175      # m
+  l_to_D_min: 1.0     # ≥ 1.0 — osno vsaj tako dolg kot širok rotor (ne ploščat)
+  l_to_D_max: 2.2
+  B_delta_min: 0.85   # T — tipična amplituda fundamentalne B v zr. reži
+  B_delta_max: 1.05
+  B_ds_min: 1.30      # B v statorskem zobu [T]
+  B_ds_max: 1.70
+  B_sy_min: 1.00      # B v statorskem jarmu [T]
+  B_sy_max: 1.50      # jarem realno nasiči pri ~1.5 T (ne 1.65)
+  J_cu_s_min: 4.0     # A/mm² — nizka gostota = manj Cu izgub (učinkoviti del fronte)
+  J_cu_s_max: 10.0    # zgornja meja po nalogi (točka A)
   J_cu_r_min: 2.0
-  J_cu_r_max: 5.0
-  N_r_min: 50         # zaostreno z 10 — prisili visok N_r kot pri D05 (N_r=55),
-                      # kar daje večji F_m = N_r·I_m za isti analitični B_δ →
-                      # višji FEMM navor. GA bi sicer izbral N_r 28-38 zaradi
-                      # η optimizacije, kar pa daje manj MMF in manj navora.
-  N_r_max: 80
-  q_choices: [2.0]
-  # Q_s = 2*p*m*q  ⇒  q=2 ⇒ Q_s=36.
-  # Pri manjšem D_r (130–188 mm) z l/D≥1 q∈{2.5,3} ustvarja zelo ozke zobje
-  # (Q_s=45/54), kar pri FEMM povzroči eksplozijo mreže in ~10× počasnejši
-  # solver. Pri starem zagonu je GA tako ali tako za vseh 5 designov izbral
-  # q=2 — zato to fiksiramo tudi tu.
+  J_cu_r_max: 5.0     # zgornja meja po nalogi (točka A)
+  N_r_min: 40         # ovojev na rotorski pol — širši razpon zaradi večje
+  N_r_max: 100        # zr. reže (2 mm) → potreben večji F_m = N_r·I_m na pol
+  # Q_s = 2*p*m*q  ⇒  q=2 ⇒ Q_s=36. Fiksiramo q=2: pri majhnem D_r z l/D≥1
+  # bi q∈{2.5,3} (Q_s=45/54) dal zelo ozke zobe in eksplozijo FEMM mreže.
   q_choices: [2.0]

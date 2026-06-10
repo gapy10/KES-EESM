@@ -10,6 +10,16 @@ __pycache__/
 
 # Izhodni rezultati (generirani z zagonom programa)
 outputs/
+outputs_wide/
+outputs_d05_save/
+
+# Poročilo in koda za generacijo poročila (niso potrebni za zagon programa)
+*.docx
+src/build_report_docx.py
+src/regen_report.py
+update_report_*.py
+_docdump.txt
+_v3_dump.txt
 
 # Dokumentacija in opis (niso potrebni za delovanje programa)
 Documents/

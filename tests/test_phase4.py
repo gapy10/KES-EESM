@@ -133,6 +133,9 @@ class TestCompare:
         tq = _synthetic_torque()
         fl = femm_iron_losses(design, nl, machine, material, loss)
         rows = compare(design, nl, tq, fl, machine)
+        # 8 vrstic: U_ind, B_zob, B_jarem, Navor M_c (cilj), P_Fe×3, η.
+        # (Nekdanja ločena vrstica "Navor (napoved)" je odstranjena skupaj z
+        #  navorno korekcijo toka — navor primerjamo le proti nazivnemu M_c.)
         assert len(rows) == 8
 
     def test_diff_percent_finite(self, baseline_design):

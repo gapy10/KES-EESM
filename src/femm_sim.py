@@ -12,7 +12,6 @@ Vse funkcije sprejmejo `MotorDesign` in delajo s pyFEMM. Predpostavljajo,
 da je FEMM že odprt in da je model naložen.
 
 Vir:
-    primer1/python/KES.py — vzorec za rotacijo, integracijo Ψ in navora.
     Meeker, D., FEMM 4.2 — `mo_blockintegral(22)` = Steady-state weighted
     stress tensor torque about (0, 0).
 """

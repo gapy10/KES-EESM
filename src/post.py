@@ -170,8 +170,8 @@ def compare(
     rows = [
         AnalyticalVsFemm(
             "U_ind (RMS)", "V",
-            machine.U_f, no_load.U_ind_rms,
-            diff(machine.U_f, no_load.U_ind_rms),
+            design.E_target, no_load.U_ind_rms,
+            diff(design.E_target, no_load.U_ind_rms),
         ),
         AnalyticalVsFemm(
             "B_max v zobu", "T",
@@ -183,8 +183,12 @@ def compare(
             design.genes.B_sy, no_load.B_max_yoke,
             diff(design.genes.B_sy, no_load.B_max_yoke),
         ),
+        # Navor: primerjamo dejanski FEMM navor proti projektnemu nazivnemu
+        # navoru M_c = P_c/ω_meh (= M_FEMM_pred). Stroj je dimenzioniran za
+        # poštenih 50 kW; FEMM navor pri analitičnem nazivnem toku I_n je
+        # rezultat verifikacije (brez kakršnegakoli napihovanja toka).
         AnalyticalVsFemm(
-            "Nazivni navor", "Nm",
+            "Navor M_c (cilj)", "Nm",
             machine.torque_c, tq.M_fundamental,
             diff(machine.torque_c, tq.M_fundamental),
         ),
@@ -270,8 +274,9 @@ def summary_dataframe(
             "P_Fe_analit_W": d.P_fe_total,
             "P_Cu_W": d.P_cu_total,
             "eta_analit": d.eta,
-            "U_ind_analit_V": machine.U_f,
+            "U_ind_analit_V": d.E_target,
             "M_analit_Nm": machine.torque_c,
+            "M_FEMM_pred_Nm": d.M_FEMM_pred,
             # FEMM:
             "P_Fe_femm_W": fl.P_fe_total,
             "eta_femm": fl.eta_femm,

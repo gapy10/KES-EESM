@@ -129,6 +129,11 @@ def main(argv=None) -> int:
                 "b_dr": d.b_dr * 1e3,
                 "h_yr": d.h_yr * 1e3,
             },
+            "magnetic": {
+                "K_cs": d.K_cs,     # Carterjev koeficient — statorska stran
+                "K_cr": d.K_cr,     # Carterjev koeficient — rotorska stran
+                "K_c": d.K_c,       # skupni Carterjev koeficient = K_cs · K_cr
+            },
             "electrical": {
                 "Q_s": d.Q_s,
                 "N_s": d.N_s,

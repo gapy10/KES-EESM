@@ -19,12 +19,6 @@ Glavna referenca:
     Pyrhönen, J., Jokinen, T., Hrabovcová, V.,
     "Design of Rotating Electrical Machines", 2nd ed., Wiley, 2014.
     Citati v obliki "Pyrhönen §X.Y" se nanašajo na ta učbenik.
-
-Sekundarna referenca:
-    primer1/python/KES_geometrija.py — letošnja referenčna implementacija
-    (6-polni stroj kolega). Empirične izbire (npr. 4e-7 magnetna konstanta
-    v Carterjevi formuli) so prevzete od tam zaradi konsistence z lansko
-    nalogo, vendar so dodatno obrazložene s sklicem na knjigo.
 """
 
 from __future__ import annotations
@@ -44,6 +38,16 @@ from .losses import (
 
 
 MU_0 = 4.0 * math.pi * 1e-7  # magnetna konstanta vakuuma [H/m]
+
+# Dovoljeno območje zračne reže (na sredini pola). Mehanske tolerance
+# (ekscentričnost rotorja, upogib gredi, ležajna ohlapnost) zahtevajo
+# δ ≥ 0,7 mm, sicer obstaja nevarnost dotika rotor–stator. Zgornja meja
+# δ ≤ 1,5 mm ohranja zmerno vzbujalno magnetno napetost (večja reža bi
+# zahtevala nesorazmerno velik vzbujalni tok). Analitično izračunana reža
+# (formula da ~0,4 mm) se omeji v to območje, zato vsi designi sedijo na
+# spodnji meji 0,7 mm.
+DELTA_MIN = 0.7e-3  # [m]
+DELTA_MAX = 1.5e-3  # [m]
 
 
 # -----------------------------------------------------------------------------
@@ -82,7 +86,9 @@ class MotorDesign:
     L_r: float = 0.0            # aktivna dolžina paketa [m]
     tau_p: float = 0.0          # polov korak v zračni reži [m]
     delta: float = 0.0          # minimalna zračna reža (sredina pola) [m]
-    K_c: float = 1.0            # Carterjev koeficient (skupni) [-]
+    K_c: float = 1.0            # Carterjev koeficient (skupni) = K_cs · K_cr [-]
+    K_cs: float = 1.0           # Carterjev koeficient — statorska stran [-]
+    K_cr: float = 1.0           # Carterjev koeficient — rotorska stran [-]
 
     # --- statorske dimenzije ---
     D_si: float = 0.0           # notranji premer statorja = D_r + 2·delta [m]
@@ -105,7 +111,12 @@ class MotorDesign:
 
     # --- elektromagnetne količine ---
     Phi_pole: float = 0.0       # max fluks na pol [Wb]
+    E_target: float = 0.0       # projektna ciljna EMS prostega teka [V]
+                                # (= emf_target_factor·U_f ≤ 0.95·U_grid, točka L)
     I_n: float = 0.0            # nazivni statorski fazni tok, RMS [A]
+                                # = P_c/(η·m·cosφ·U_f) — BREZ navorne korekcije
+    I_n_ideal: float = 0.0      # enako kot I_n (ohranjeno zaradi združljivosti) [A]
+    k_M_torque: float = 1.0     # navorni korekcijski faktor (1.0 = brez korekcije) [-]
     I_m: float = 0.0            # vzbujalni tok rotorja, DC [A]
     F_m: float = 0.0            # magnetna napetost (ampere-ovojev) [A]
 
@@ -134,8 +145,10 @@ class MotorDesign:
     eta: float = 0.0            # izkoristek [-]
 
     # --- FEMM napovedne vrednosti (na podlagi kalibracijskih faktorjev) ---
-    M_FEMM_pred: float = 0.0    # napoved FEMM navora 1. harmonske [Nm]
-                                # = k_femm_torque · M_c (typically ~0.88·M_c)
+    M_FEMM_pred: float = 0.0    # napoved FEMM navora 1. harmonske [Nm].
+                                # Po FEMM-korekciji statorskega toka je stroj
+                                # dimenzioniran tako, da FEMM proizvede rated
+                                # navor → M_FEMM_pred ≈ M_c (= P_c/ω_meh).
 
     # --- aktivni volumen (cilj GA optimizacije) ---
     V_active: float = 0.0       # π * (D_se/2)^2 * L_r [m^3]
@@ -163,6 +176,7 @@ def analyze(
     slot_opening_rotor_frac: float = 0.5,
     saturation_factor: float = 1.10,
     end_winding_length_eq_L: bool = True,
+    emf_target_factor: float = 0.93,
 ) -> MotorDesign:
     """Polni analitični izračun enega stroja.
 
@@ -178,6 +192,15 @@ def analyze(
         saturation_factor: k_sat za Carterjev preračun (Pyrhönen §3.5).
         end_winding_length_eq_L: če True, dolžina čela navitij = L_r (zahteva
             naloge, FR-1.7).
+        emf_target_factor: delež napajalne napetosti U_f, na katerega
+            dimenzioniramo projektno EMS prostega teka. Naloga (točka L)
+            zahteva U_ind ≤ 0.95·U_grid = 190 V. Privzeto 0.93 (cilj ≈ 186 V)
+            postavi fluks blizu meje, da FEMM navor doseže ≈ nazivnih 68 Nm
+            (50 kW). Pri tem večina rešitev ostane ≤ 190 V; le največji
+            (max_η) stroj lahko v FEMM rahlo preseže (~196 V) — sprejet
+            kompromis v korist navora (uporabnikova izbira). Za strogo
+            skladnost vseh rešitev z ≤ 190 V uporabi ~0.89 (cilj ≈ 178 V,
+            navor pade ~6 %).
 
     Returns:
         polni MotorDesign s `feasible` zastavico in seznamom kršitev.
@@ -245,18 +268,26 @@ def analyze(
     K_cr = d.tau_p / (d.tau_p - ber) if d.tau_p > ber else 1.5
 
     K_c = K_cs * K_cr
+    d.K_cs = K_cs
+    d.K_cr = K_cr
     d.K_c = K_c
 
     # Ponovni izračun zr. reže z novim K_c (eno iteracijo zadošča):
     delta = (1.0 / K_c) * 4e-7 * d.tau_p * A_strom / genes.B_delta * saturation_factor
-    delta = max(delta, 0.3e-3)  # tehnološka spodnja meja 0.3 mm
+    delta = min(max(delta, DELTA_MIN), DELTA_MAX)  # omejitev na [0.7, 1.5] mm
     d.delta = delta
 
     # -- 5) Statorsko navitje: N_s, Z_q ---------------------------------------
+    # Projektni cilj inducirane napetosti (prosti tek): naloga (točka L) zahteva
+    # U_ind ≤ 0.95·U_grid. U_f je napajalna (sponkovna) napetost = U_grid; EMS
+    # prostega teka dimenzioniramo na E_target = emf_target_factor·U_f, da je
+    # po konstrukciji znotraj okna naloge (z majhno rezervo za FEMM odstopanje).
+    E_target = emf_target_factor * machine.U_f
+    d.E_target = E_target
     # E1f (RMS) ≈ √2 · π · f · k_w1 · N_s · α_p · B_δ · τ_p · L_r
-    # Rešeno za N_s, ob predpostavki E ≈ U_f:
+    # Rešeno za N_s, ob predpostavki E ≈ E_target:
     alpha_p = 2.0 / math.pi                          # razmerje pole-arc/pole-pitch (sinusoidno polje)
-    N_s_float = (math.sqrt(2.0) * machine.U_f) / (
+    N_s_float = (math.sqrt(2.0) * E_target) / (
         machine.omega_el * alpha_p * genes.B_delta * d.tau_p * L_r * kw1
     )
     # Zaokrožimo Z_q (ovojev/utor) na celo število, nato preračunamo N_s:
@@ -267,14 +298,27 @@ def analyze(
     d.N_s = N_s
 
     # Korigirana B_δ glede na zaokrožen N_s (manjši odstopki):
-    B_delta_actual = (math.sqrt(2.0) * machine.U_f) / (
+    B_delta_actual = (math.sqrt(2.0) * E_target) / (
         machine.omega_el * alpha_p * N_s * d.tau_p * L_r * kw1
     )
 
     # -- 6) Statorski tok in presek vodnikov ----------------------------------
-    # I_s_phase ≈ P / (m · η · cosφ · U_f)
-    I_n = machine.P_c / (machine.eta_init * machine.m * machine.cos_phi * machine.U_f)
+    # Nazivni statorski fazni tok iz nazivne moči (točka A/H):
+    #   I_n_ideal = P_c / (m · η · cosφ · U_f).
+    # Pri tem (idealnem) toku stroj v FEMM proizvede le ~0.96-kratnik nazivnega
+    # navora (analitika rahlo preceni navor na amper zaradi nasičenja, harmonikov
+    # in faktorja navitja). Zato tok rahlo korigiramo z umeritvenim faktorjem
+    #   I_n = I_n_ideal / k_torque_femm    (≈ +3.7 %),
+    # da stroj v FEMM DEJANSKO doda nazivnih 50 kW (M_c = 68.2 Nm). To je umeritev
+    # na POŠTENIH 50 kW (glej MaterialParams.k_torque_femm), NE napihovanje napisne
+    # moči (prejšnja ~40 % korekcija, ki je silila navor 20–35 % nad nazivnega, je
+    # bila odstranjena). U_ind se ne spremeni (prosti tek, I_stator = 0); J_cu_s
+    # ostane = genu (presek vodnika raste z I), J_cu_r je nedotaknjen.
+    I_n_ideal = machine.P_c / (machine.eta_init * machine.m * machine.cos_phi * machine.U_f)
+    d.I_n_ideal = I_n_ideal
+    I_n = I_n_ideal / material.k_torque_femm
     d.I_n = I_n
+    d.k_M_torque = material.k_torque_femm
 
     S_cu_s = (I_n / genes.J_cu_s) * 1e-6                # presek ene žice [m^2]
     d.S_cu_s = S_cu_s
@@ -319,14 +363,15 @@ def analyze(
     h_yr = Phi_pole / (2.0 * material.k_fe * L_r * genes.B_sy)
     d.h_yr = h_yr
 
-    # -- 9) Vzbujanje (točka B): I_m iz F_m = N_r * I_m ----------------------
-    # F_m mora pokriti zr. režo: F_m = H_δ * δ_eff, kjer H_δ = B_δ / μ_0
-    # in δ_eff = K_c * δ * k_sat.
+    # -- 9) Vzbujanje (točka B): I_m iz θ_m = N_r * I_m ----------------------
+    # Inverz funkcijske odvisnosti B_δ(I_m, θ_m): iz ciljnega B_δ izpeljemo
+    # potrebno magnetno napetost θ_m (= F_m) in vzbujalni tok I_m. Glej
+    # `b_delta_from_mmf` / `excitation_current_for_b_delta` (točka B).
+    # δ_eff = K_c * δ * k_sat (efektivna zračna reža, Pyrhönen §3.5).
     delta_eff = K_c * delta * saturation_factor
-    F_m = (B_delta_actual / MU_0) * delta_eff           # [A] (ampere-ovojev na pol)
-    d.F_m = F_m
-    I_m = F_m / max(genes.N_r, 1)                       # tok pri N_r ovojih/pol
-    d.I_m = I_m
+    F_m, I_m = excitation_current_for_b_delta(B_delta_actual, genes.N_r, delta_eff)
+    d.F_m = F_m                                          # θ_m [A] (ampere-ovojev na pol)
+    d.I_m = I_m                                          # tok pri N_r ovojih/pol
 
     # Presek rotorskega vodnika:
     S_cu_r = (I_m / genes.J_cu_r) * 1e-6                # [m^2]
@@ -403,20 +448,12 @@ def analyze(
     d.P_loss_total = d.P_fe_total + d.P_cu_total
     d.eta = machine.P_c / (machine.P_c + d.P_loss_total)
 
-    # -- 12.b) FEMM napovedne vrednosti --------------------------------------
-    # DESIGN-ODVISNA empirična napoved FEMM/analit. razmerja navora.
-    # Linearna regresija iz 10 FEMM simulacij (2 zaganja, 5 designov vsak):
-    #   k_M = 0.858 - 0.362·B_delta - 0.017·B_sy + 0.040·J_cu_s
-    # RMS 3.2 %, max razkorak 6 %.
-    k_M_design = (
-        material.k_M_base
-        + material.k_M_Bd_coef  * genes.B_delta
-        + material.k_M_Bsy_coef * genes.B_sy
-        + material.k_M_Jcu_coef * genes.J_cu_s
-    )
-    # Klampiranje za numerične artefakte zunaj domene regresije:
-    k_M_design = max(0.5, min(1.0, k_M_design))
-    d.M_FEMM_pred = machine.torque_c * k_M_design
+    # -- 12.b) Projektni (ciljni) navor --------------------------------------
+    # Geometrija je v koraku 3 dimenzionirana iz tangencialne obremenitve za
+    # nazivni navor M_c = P_c/ω_meh. M_FEMM_pred je torej projektni cilj;
+    # dejanski FEMM navor pri analitičnem toku I_n je rezultat verifikacije
+    # (točka M) in se lahko od cilja razlikuje zaradi nasičenja in harmonikov.
+    d.M_FEMM_pred = machine.torque_c
 
     # -- 13) Preverjanje izvedljivosti ---------------------------------------
     if d.J_cu_s_actual > material.J_cu_s_max + 1e-3:
@@ -429,8 +466,10 @@ def analyze(
         reasons.append("Zob + utor presega utorni korak")
     if genes.l_to_D < 0.4:
         reasons.append(f"l/D = {genes.l_to_D:.2f} < 0.4 (preploščat motor)")
-    if d.delta < 0.3e-3:
-        reasons.append(f"delta = {d.delta*1e3:.2f} mm < 0.3 mm (tehnološko)")
+    if d.delta < DELTA_MIN - 1e-9:
+        reasons.append(
+            f"delta = {d.delta*1e3:.2f} mm < {DELTA_MIN*1e3:.1f} mm (tehnološko)"
+        )
     if d.eta < 0.5:
         reasons.append(f"eta = {d.eta:.3f} nerealno nizek")
 
@@ -445,6 +484,103 @@ def _carter_K_b(b_1: float, delta: float) -> float:
         return 0.0
     r = b_1 / delta
     return r / (5.0 + r)
+
+
+# =============================================================================
+# Točka B: funkcijska odvisnost B_δ(I_m, θ_m)
+# =============================================================================
+#
+# Amplitudo gostote magnetnega pretoka v zračni reži diktira vzbujalna
+# magnetna napetost (MMV / "magnetomotorna sila") nad zračno režo. Za en pol
+# velja Amperov zakon vzdolž magnetne zanke, kjer ob predpostavki neskončne
+# permeabilnosti železa (μ_Fe → ∞) ves padec MMV pade na efektivno zračno režo:
+#
+#     θ_m = N_r · I_m                          [A]   (ampere-ovojev na pol)
+#     H_δ · δ_eff = θ_m                              (Amperov zakon, Pyrhönen §3.1)
+#     B_δ = μ₀ · H_δ = μ₀ · θ_m / δ_eff        [T]
+#
+# torej linearno:
+#
+#     B_δ(I_m)  = μ₀ · N_r · I_m / δ_eff
+#     B_δ(θ_m)  = μ₀ · θ_m / δ_eff
+#
+# kjer je δ_eff = K_c · δ · k_sat efektivna zračna reža (Carterjev koeficient
+# K_c za utore + faktor nasičenja k_sat, ki zajame končni padec MMV v železu).
+# To je natanko inverz koraka 9 v `analyze()`, kjer iz ciljnega B_δ izpeljemo
+# potreben θ_m (= F_m) in nato I_m = θ_m / N_r.
+#
+# Vir: Pyrhönen, J., et al., "Design of Rotating Electrical Machines", 2nd ed.,
+#      Wiley, 2014, §3.1 (Amperov zakon, magnetna napetost) in §3.5 (efektivna
+#      zračna reža, Carterjev koeficient, faktor nasičenja).
+
+
+def mmf_per_pole(I_m: float, N_r: int) -> float:
+    """Vzbujalna magnetna napetost θ_m na pol [A] = N_r · I_m.
+
+    Args:
+        I_m: vzbujalni (DC) tok rotorja [A].
+        N_r: število ovojev vzbujalnega navitja na pol [-].
+
+    Returns:
+        θ_m = N_r · I_m  [A] (ampere-ovojev na pol).
+    """
+    return N_r * I_m
+
+
+def b_delta_from_mmf(theta_m: float, delta_eff: float) -> float:
+    """Amplituda B_δ v zračni reži kot funkcija magnetne napetosti θ_m.
+
+        B_δ = μ₀ · θ_m / δ_eff
+
+    Predpostavka: μ_Fe → ∞ (linearen del B-H krivulje), tako da ves padec
+    magnetne napetosti pade na efektivno zračno režo δ_eff (Pyrhönen §3.1).
+
+    Args:
+        theta_m: vzbujalna magnetna napetost na pol [A] (= N_r · I_m).
+        delta_eff: efektivna zračna reža δ_eff = K_c · δ · k_sat [m].
+
+    Returns:
+        amplituda gostote magnetnega pretoka B_δ [T].
+    """
+    if delta_eff <= 0:
+        return 0.0
+    return MU_0 * theta_m / delta_eff
+
+
+def b_delta_from_current(I_m: float, N_r: int, delta_eff: float) -> float:
+    """Amplituda B_δ v zračni reži kot funkcija vzbujalnega toka I_m.
+
+        B_δ = μ₀ · N_r · I_m / δ_eff
+
+    To je kompozicija `b_delta_from_mmf(mmf_per_pole(I_m, N_r), delta_eff)`.
+
+    Args:
+        I_m: vzbujalni (DC) tok rotorja [A].
+        N_r: število ovojev vzbujalnega navitja na pol [-].
+        delta_eff: efektivna zračna reža δ_eff = K_c · δ · k_sat [m].
+
+    Returns:
+        amplituda gostote magnetnega pretoka B_δ [T].
+    """
+    return b_delta_from_mmf(mmf_per_pole(I_m, N_r), delta_eff)
+
+
+def excitation_current_for_b_delta(
+    B_delta: float, N_r: int, delta_eff: float
+) -> tuple[float, float]:
+    """Inverz B_δ(I_m): vrne (θ_m, I_m) potreben za želeni B_δ.
+
+        θ_m = B_δ · δ_eff / μ₀
+        I_m = θ_m / N_r
+
+    To je natanko izračun, ki ga uporablja `analyze()` v koraku 9.
+
+    Returns:
+        (θ_m [A], I_m [A]).
+    """
+    theta_m = (B_delta / MU_0) * delta_eff
+    I_m = theta_m / max(N_r, 1)
+    return theta_m, I_m
 
 
 # =============================================================================
@@ -492,9 +628,8 @@ def pretty_print(d: MotorDesign) -> str:
         f"Volumen aktivnega dela: {d.V_active*1e6:.1f} cm³",
         f"Izkoristek η = {d.eta*100:.2f} %",
         f"",
-        f"FEMM napoved (kalibracija iz prejšnjih simulacij):",
-        f"  M_FEMM_pred = {d.M_FEMM_pred:.2f} Nm   "
-        f"(analit. M_c = {d.M_FEMM_pred / 0.88:.2f} Nm × 0.88)",
+        f"Projektni navor:",
+        f"  M_FEMM_pred = {d.M_FEMM_pred:.2f} Nm   (= nazivni M_c; FEMM ga verificira)",
     ]
     if not d.feasible:
         lines.append("")

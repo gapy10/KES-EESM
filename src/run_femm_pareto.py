@@ -265,8 +265,8 @@ def main(argv=None) -> int:
                     tq = torque(design, step_deg=args.step, save_fem_path=fem_torque_path)
                     thd = torque_thd(tq)
                     print(f"  torque: {time.time()-t0:.1f}s  M_1.harm={tq.M_fundamental:.2f}Nm "
-                          f"(cilj {machine.torque_c:.2f}Nm)  M_2.harm={tq.M_second:.2f}Nm  "
-                          f"THD={thd:.1f}%")
+                          f"(napoved {design.M_FEMM_pred:.2f}Nm, cilj M_c {machine.torque_c:.2f}Nm)  "
+                          f"M_2.harm={tq.M_second:.2f}Nm  THD={thd:.1f}%")
                     plot_torque(tq.theta_deg_mech, tq.torque, fig_dir / "navor.png",
                                 title=f"Navor M(θ) - {label}")
                     plot_fft(tq.fft_harmonics[:15], tq.fft_amplitudes[:15],

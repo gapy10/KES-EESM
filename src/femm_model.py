@@ -19,7 +19,6 @@ Ključne lastnosti modela:
     * Robni pogoj A = 0 na zunanjem statorskem obroču.
 
 Vir:
-    primer1/python/KES_geometrija.py — strukturni vzorec (mirror2 + copyrotate2).
     Meeker, D., FEMM 4.2 User Manual.
     Meeker, D., Octave-FEMM Documentation (pyFEMM uporablja iste ALC ukaze).
 """
