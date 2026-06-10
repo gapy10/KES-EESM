@@ -57,7 +57,9 @@ bounds:
   J_cu_r_min: 2.0
   J_cu_r_max: 5.0     # zgornja meja po nalogi (točka A)
   N_r_min: 40         # ovojev na rotorski pol — širši razpon zaradi večje
-  N_r_max: 100        # zr. reže (2 mm) → potreben večji F_m = N_r·I_m na pol
+  N_r_max: 100        # potreben večji F_m = N_r·I_m na pol pri večji reži
+  delta_min: 0.0007   # m — zračna reža je 10. optimizacijska spremenljivka
+  delta_max: 0.0015   # m — GA jo spreminja v območju 0,7–1,5 mm
   # Q_s = 2*p*m*q  ⇒  q=2 ⇒ Q_s=36. Fiksiramo q=2: pri majhnem D_r z l/D≥1
   # bi q∈{2.5,3} (Q_s=45/54) dal zelo ozke zobe in eksplozijo FEMM mreže.
   q_choices: [2.0]

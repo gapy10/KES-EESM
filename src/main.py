@@ -116,6 +116,7 @@ def main(argv=None) -> int:
                 "J_cu_r": d.genes.J_cu_r,
                 "N_r": d.genes.N_r,
                 "q": d.genes.q,
+                "delta_mm": d.genes.delta * 1e3,
             },
             "geometry_mm": {
                 "L_r": d.L_r * 1e3,

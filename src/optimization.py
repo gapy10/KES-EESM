@@ -15,6 +15,7 @@ Optimizacijski problem (9 spremenljivk):
     x[6] = J_cu_r     ∈ [J_cu_r_min, J_cu_r_max]      (zvezno)
     x[7] = N_r        ∈ [N_r_min, N_r_max]            (zaokroženo na int)
     x[8] = q_idx      ∈ [0, 4]                        (zaokroženo, ima 5 košev za q)
+    x[9] = delta      ∈ [delta_min, delta_max]        (zvezno, zračna reža [m])
 
 Cilji (minimizacija):
     f1 = 1/η - 1         (max izkoristek)
@@ -72,7 +73,7 @@ class MotorOptimizationProblem(Problem):
     za ostale kršitve iz `MotorDesign.feasible`).
     """
 
-    N_VAR = 9
+    N_VAR = 10
     N_OBJ = 2
     N_CONSTR = 3    # J_cu_s, J_cu_r, feasibility-penalty
                     # (Inflacijski FEMM-navor filter g4 odstranjen: model
@@ -105,6 +106,7 @@ class MotorOptimizationProblem(Problem):
             bounds.J_cu_r_min,
             float(bounds.N_r_min),
             0.0,
+            bounds.delta_min,
         ])
         xu = np.array([
             bounds.D_r_max,
@@ -116,6 +118,7 @@ class MotorOptimizationProblem(Problem):
             bounds.J_cu_r_max,
             float(bounds.N_r_max),
             float(len(bounds.q_choices) - 1),  # 0..4 za 5 vrednosti
+            bounds.delta_max,
         ])
         super().__init__(n_var=self.N_VAR, n_obj=self.N_OBJ, n_ieq_constr=self.N_CONSTR,
                          xl=xl, xu=xu)
@@ -134,6 +137,7 @@ class MotorOptimizationProblem(Problem):
             J_cu_r=float(x[6]),
             N_r=int(round(x[7])),
             q=float(self.design_bounds.q_choices[q_idx]),
+            delta=float(x[9]),
         )
 
     def evaluate_one(self, x: np.ndarray) -> tuple[MotorDesign, np.ndarray, np.ndarray]:

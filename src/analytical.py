@@ -55,7 +55,7 @@ DELTA_MAX = 1.5e-3  # [m]
 # -----------------------------------------------------------------------------
 @dataclass
 class MotorDesignGenes:
-    """Devet optimizacijskih spremenljivk, ki definirajo en stroj."""
+    """Deset optimizacijskih spremenljivk, ki definirajo en stroj."""
 
     D_r: float          # premer rotorja [m]
     l_to_D: float       # razmerje L_r / D_r [-]
@@ -66,10 +66,13 @@ class MotorDesignGenes:
     J_cu_r: float       # tokovna gostota rotorskega navitja [A/mm^2]
     N_r: int            # ovojev na rotorski pol [-]
     q: float            # utori/(pol·fazo) ∈ {1, 1.5, 2, 2.5, 3} [-]
+    delta: float = 0.7e-3  # zračna reža (min., sredina pola) [m] — 10. gen,
+                           # GA jo spreminja v območju [0.7, 1.5] mm. Privzeta
+                           # vrednost 0.7 mm ohranja združljivost s starimi klici.
 
     def as_tuple(self) -> tuple:
         return (self.D_r, self.l_to_D, self.B_delta, self.B_ds, self.B_sy,
-                self.J_cu_s, self.J_cu_r, self.N_r, self.q)
+                self.J_cu_s, self.J_cu_r, self.N_r, self.q, self.delta)
 
 
 # -----------------------------------------------------------------------------
@@ -240,14 +243,11 @@ def analyze(
     # (Pyrhönen eq. 6.5 — RMS variant; tu uporabimo peak po primer1.)
     A_strom = math.sqrt(2.0) * sigma_F / (genes.B_delta * machine.cos_phi)  # [A/m]
 
-    # Začetna zr. reža iz Carter zveze (primer1 vrstice 39–40):
-    delta = (1.0 / K_c) * 4e-7 * d.tau_p * A_strom / genes.B_delta          # [m]
-    # Pojasnilo konstante 4e-7: Pyrhönen §3.5 podaja
-    #   δ ≥ (γ · D · A · k_sat) / (B_δ · ...)
-    # kjer γ ≈ 4e-7 m·m/A za zračne reže v sinhronskih strojih (tipično).
-    # Empirična izbira; popravljena z faktorjem nasičenja spodaj.
-
-    delta *= saturation_factor                                              # k_sat
+    # Zračna reža δ je OPTIMIZACIJSKA SPREMENLJIVKA (10. gen): genetski algoritem
+    # jo prosto spreminja v območju [0.7, 1.5] mm (varnostno omejimo na ta
+    # interval). Reže torej ne računamo več iz empirične Carter zveze — je
+    # neposredna projektna izbira. Tokovna obloga A_strom (zgoraj) je informativna.
+    delta = min(max(genes.delta, DELTA_MIN), DELTA_MAX)                      # [m]
     d.delta = delta
 
     # -- 4) Carterjev koeficient (popravek za odprtine utorov) ---------------
@@ -272,10 +272,8 @@ def analyze(
     d.K_cr = K_cr
     d.K_c = K_c
 
-    # Ponovni izračun zr. reže z novim K_c (eno iteracijo zadošča):
-    delta = (1.0 / K_c) * 4e-7 * d.tau_p * A_strom / genes.B_delta * saturation_factor
-    delta = min(max(delta, DELTA_MIN), DELTA_MAX)  # omejitev na [0.7, 1.5] mm
-    d.delta = delta
+    # (Zračne reže ne preračunavamo iz K_c — je optimizacijski gen, glej korak 3.
+    #  δ_eff = K_c · δ · k_sat se za vzbujalni tok izračuna kasneje v koraku 9.)
 
     # -- 5) Statorsko navitje: N_s, Z_q ---------------------------------------
     # Projektni cilj inducirane napetosti (prosti tek): naloga (točka L) zahteva

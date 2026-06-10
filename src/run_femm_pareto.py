@@ -87,6 +87,7 @@ def reconstruct_design(item, machine, material, loss):
         J_cu_r=item["genes"]["J_cu_r"],
         N_r=int(item["genes"]["N_r"]),
         q=item["genes"]["q"],
+        delta=item["genes"].get("delta_mm", 0.7) * 1e-3,
     )
     return analyze(g, machine, material, loss)
 

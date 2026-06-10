@@ -221,6 +221,10 @@ class DesignBounds:
     N_r_min: int = 10               # ovojev na rotorski pol
     N_r_max: int = 80
 
+    # Zračna reža (10. optimizacijska spremenljivka)
+    delta_min: float = 0.7e-3       # [m]
+    delta_max: float = 1.5e-3       # [m]
+
     # q (diskretno)
     q_choices: list[float] = field(default_factory=lambda: [1.0, 1.5, 2.0, 2.5, 3.0])
 
