@@ -26,6 +26,9 @@ Vir:
 from __future__ import annotations
 
 import math
+import sys
+import time
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence, Optional
@@ -38,6 +41,31 @@ from .analytical import MotorDesign
 # =============================================================================
 # Pomožne funkcije
 # =============================================================================
+
+def kill_stale_femm(verbose: bool = True) -> None:
+    """Pobije morebitne osirotele femm.exe procese pred odpiranjem FEMM.
+
+    pyfemm `openfemm()` se preko COM/ActiveX prilepi na *že odprto* FEMM
+    instanco. Če je ta po prekinjenem/sesutem prejšnjem zagonu obtičala
+    (odprt modalni dialog, sesutje sredi operacije), vsi `mi_*` ukazi
+    spodletijo in zgradnja stroja pade pri vseh poskusih. Zato pred zagonom
+    počistimo. Velja le na Windows; drugje je tih No-Op.
+    """
+    if not sys.platform.startswith("win"):
+        return
+    try:
+        res = subprocess.run(
+            ["taskkill", "/F", "/IM", "femm.exe"],
+            capture_output=True, text=True,
+        )
+    except FileNotFoundError:
+        return
+    # taskkill vrne 0 ob uspehu, sicer (ni procesa) pustimo pri miru.
+    if res.returncode == 0:
+        if verbose:
+            print("[info] Pobiti obstoječi femm.exe procesi pred zagonom.")
+        # Kratka pavza, da OS sprosti COM registracijo in datotečne ročice.
+        time.sleep(1.0)
 
 def _mirror_rotate_point(x: float, y: float, deg: float) -> tuple[float, float]:
     """Zrcali x okrog y-osi, nato zavrti za deg stopinj (primer1 vzorec)."""
@@ -120,6 +148,7 @@ def build_motor(
     open_femm: bool = True,
     close_femm: bool = False,
     finalize_geometry: bool = True,
+    kill_existing: bool = True,
 ) -> Path:
     """Zgradi FEMM model enega stroja in ga shrani v `.fem` datoteko.
 
@@ -132,6 +161,9 @@ def build_motor(
             ustreza nastavitvi kolesnega kota na 0°).
         open_femm: True → odpri FEMM (potrebno, če še ni odprt).
         close_femm: True → po shranjevanju zapri FEMM.
+        kill_existing: True (in open_femm) → pred odprtjem pobije morebitne
+            osirotele femm.exe procese, da se pyfemm ne prilepi na zataknjeno
+            instanco iz prejšnjega zagona.
         finalize_geometry: True → izvede `koncaj_geometrijo` (materiali,
             krogotoki, robni pogoji). False uporabi se za testiranje izrisa.
     """
@@ -141,6 +173,8 @@ def build_motor(
 
     # ---- 1) Otvoritev FEMM in problemska definicija ------------------------
     if open_femm:
+        if kill_existing:
+            kill_stale_femm()
         femm.openfemm()
     femm.newdocument(0)  # 0 = magnetic problem
     # globina problema = L_r (mm), tipično 30° min angle, brez precision lim

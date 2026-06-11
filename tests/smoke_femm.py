@@ -1,5 +1,6 @@
 """Smoke FEMM test - zaženi v foreground, izpis na konec."""
 import sys, math, json, time, femm
+from src.femm_model import kill_stale_femm
 
 I_m_default = 21.0
 femm_path = "outputs/fem/smoke_test.fem"
@@ -13,6 +14,7 @@ except Exception:
     mid = None
 
 print(f'I_m = {I_m:.2f} A', flush=True)
+kill_stale_femm()
 femm.openfemm()
 femm.opendocument(femm_path)
 femm.mi_setcurrent('DC', I_m)

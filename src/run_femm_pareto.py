@@ -10,7 +10,8 @@ Robustnost:
     properties have not been defined for all regions" za ekstremno geometrijo),
     skript poišče najbližjega soseda na Pareto fronti (v normalizirani
     ravnini (1/η−1, V_active)) in poskusi z njim. Število poskusov omejuje
-    `--max-retries` (privzeto 5).
+    `--max-retries` (privzeto 12 — celoten max_eta vogal z velikim D_r ≳151 mm
+    je nezmrežljiv, zato je treba seči dlje po fronti do zmrežljivega stroja).
 
 Zagon:
     python -m src.run_femm_pareto                          # privzeti step_deg=5
@@ -35,7 +36,7 @@ import pandas as pd
 from .inputs import MachineInputs, MaterialParams, DesignBounds, load_from_yaml
 from .losses import IronLossModel
 from .analytical import MotorDesignGenes, analyze
-from .femm_model import build_motor
+from .femm_model import build_motor, kill_stale_femm
 from .femm_sim import no_load, torque
 from .optimization import MotorOptimizationProblem
 from .post import (
@@ -65,14 +66,22 @@ def parse_args(argv=None):
                    help="Kotni korak vrtenja [°] (manjše = natančneje, počasneje)")
     p.add_argument("--only", default=None,
                    help="Samo ena oznaka: max_eta, high_eta_mid, mid, low_eta_mid, min_V")
-    p.add_argument("--max-retries", type=int, default=5,
-                   help="Število alternativ s Pareto fronte ob napaki FEMM")
+    p.add_argument("--max-retries", type=int, default=12,
+                   help="Število alternativ s Pareto fronte ob napaki FEMM. "
+                        "Privzeto 12: ekstremni vogal Pareto fronte (max_eta, "
+                        "velik D_r ≳151 mm) FEMM ne zmreži ('Material properties "
+                        "have not been defined for all regions'), zato mora biti "
+                        "dovolj poskusov, da najde najbližji zmrežljiv stroj.")
     p.add_argument("--skip-noload", action="store_true")
     p.add_argument("--skip-torque", action="store_true")
     p.add_argument("--out", default="outputs", help="Izhodni imenik")
     p.add_argument("--config", default="inputs.yaml",
                    help="YAML z bounds (potreben za pravilno dekodiranje alternativ "
                         "iz pareto.npz; mora se ujemati s tistim, ki ga je uporabil GA)")
+    p.add_argument("--no-kill-femm", action="store_true",
+                   help="Ne pobij obstoječih femm.exe procesov pred zagonom "
+                        "(privzeto jih pobijemo, da se pyfemm ne prilepi na "
+                        "zataknjeno instanco iz prejšnjega zagona)")
     return p.parse_args(argv)
 
 
@@ -132,6 +141,8 @@ def _recover_used_indices(
 
 def main(argv=None) -> int:
     args = parse_args(argv)
+    if not args.no_kill_femm:
+        kill_stale_femm()
     out_dir = Path(args.out)
     fem_dir = out_dir / "fem"
     fig_root = out_dir / "figures"
@@ -206,6 +217,7 @@ def main(argv=None) -> int:
         ]
 
         success = False
+        last_err = None  # zadnja FEMM-napaka tega slota (za sklepno poročilo)
         for attempt, pareto_idx in enumerate(candidate_indices, start=1):
             if attempt > args.max_retries:
                 print(f"  !! presežen --max-retries ({args.max_retries}) "
@@ -240,7 +252,8 @@ def main(argv=None) -> int:
                 # ---- Build ----
                 t0 = time.time()
                 build_motor(design, fem_built,
-                            open_femm=(not femm_opened), close_femm=False)
+                            open_femm=(not femm_opened), close_femm=False,
+                            kill_existing=not args.no_kill_femm)
                 femm_opened = True
                 print(f"  build: {time.time()-t0:.1f}s")
 
@@ -295,10 +308,16 @@ def main(argv=None) -> int:
                             )
 
             except Exception as e:
-                err = f"{type(e).__name__}: {e}"
-                print(f"  !! NAPAKA pri {design_id} "
-                      f"(poskus {attempt}, Pareto idx {pareto_idx}): {err}",
-                      file=sys.stderr)
+                last_err = f"{type(e).__name__}: {e}"
+                # POZOR: to NI napaka programa. Stroji na robu Pareto fronte
+                # (npr. ekstremen max_eta z velikim D_r) jih FEMM ne zmreži;
+                # skript je zasnovan tako, da samodejno nadaljuje z najbližjo
+                # zmrežljivo alternativo s Pareto fronte. Zato to izpišemo kot
+                # običajen informativen korak (stdout), NE kot napako. Pravo
+                # odpoved (če spodletijo VSE alternative) poročamo šele na koncu.
+                print(f"  [info] {design_id}: poskus {attempt} (Pareto idx "
+                      f"{pareto_idx}) ni zmrežljiv — nadaljujem z naslednjo "
+                      f"rešitvijo s Pareto fronte ...")
                 # FEMM stanje je verjetno pokvarjeno → zaprimo, ponovno odpremo.
                 try:
                     femm.closefemm()
@@ -326,7 +345,8 @@ def main(argv=None) -> int:
 
         if not success:
             failures.append((design_id,
-                             f"vse alternative spodletele ({args.max_retries} poskusov)"))
+                             f"vse alternative spodletele ({args.max_retries} poskusov)"
+                             + (f"; zadnja FEMM-napaka: {last_err}" if last_err else "")))
 
     try:
         femm.closefemm()
