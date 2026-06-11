@@ -203,7 +203,12 @@ def main(argv=None) -> int:
     for slot_pos, (k, item) in enumerate(process_items):
         label = item["label"]
         design_id = f"D{k:02d}_{label}"
-        print(f"\n=== [{slot_pos+1}/{len(process_items)}] {design_id} ===")
+        # Glavo NE izpišemo takoj. Konzola naj vsebuje IZKLJUČNO modele, ki se
+        # dejansko zmrežijo in jim simulacija uspešno steče; nezmrežljivih
+        # poskusov sploh ne omenimo. Glavo + parametre izpišemo šele, ko prvi
+        # kandidat tega slota uspešno prestane mesh probo (prvi mi_analyze).
+        header_line = f"\n=== [{slot_pos+1}/{len(process_items)}] {design_id} ==="
+        header_printed = False
 
         # Izgradi seznam kandidatov: najprej originalni stroj (iz
         # selected5.json), nato sosedi na Pareto fronti urejeni po
@@ -220,8 +225,8 @@ def main(argv=None) -> int:
         last_err = None  # zadnja FEMM-napaka tega slota (za sklepno poročilo)
         for attempt, pareto_idx in enumerate(candidate_indices, start=1):
             if attempt > args.max_retries:
-                print(f"  !! presežen --max-retries ({args.max_retries}) "
-                      f"za {design_id}", file=sys.stderr)
+                # Tiho prekinemo — nezmrežljivih poskusov ne omenjamo v konzoli.
+                # Morebitno popolno odpoved slota poročamo šele na koncu (stderr).
                 break
 
             if attempt == 1:
@@ -231,31 +236,55 @@ def main(argv=None) -> int:
                 genes = decode_problem.decode(all_X[pareto_idx])
                 design = analyze(genes, machine, material, loss)
                 is_replacement = True
-                print(f"  ↻ alternativa #{attempt-1} (Pareto idx {pareto_idx}): "
-                      f"D_r={design.genes.D_r*1e3:.1f}mm η={design.eta*100:.2f}% "
-                      f"V={design.V_active*1e6:.0f}cm³")
 
-            print(f"  D_r={design.genes.D_r*1e3:.1f}mm L={design.L_r*1e3:.1f}mm "
-                  f"q={design.genes.q} N_r={design.genes.N_r} "
-                  f"η_analit={design.eta*100:.2f}% V={design.V_active*1e6:.0f}cm³")
+            # Opisne vrstice tega poskusa PRIPRAVIMO, a jih izpišemo šele, ko
+            # potrdimo zmrežljivost (uspešen prvi mi_analyze) — glej spodaj.
+            attempt_lines: list[str] = []
+            if is_replacement:
+                attempt_lines.append(
+                    f"  ↻ alternativa #{attempt-1} (Pareto idx {pareto_idx}): "
+                    f"D_r={design.genes.D_r*1e3:.1f}mm η={design.eta*100:.2f}% "
+                    f"V={design.V_active*1e6:.0f}cm³"
+                )
+            attempt_lines.append(
+                f"  D_r={design.genes.D_r*1e3:.1f}mm L={design.L_r*1e3:.1f}mm "
+                f"q={design.genes.q} N_r={design.genes.N_r} "
+                f"η_analit={design.eta*100:.2f}% V={design.V_active*1e6:.0f}cm³"
+            )
 
             fem_built = fem_dir / f"{design_id}_excited.fem"
             fem_noload_path = fem_dir / f"{design_id}_noload.fem"
             fem_torque_path = fem_dir / f"{design_id}_torque.fem"
             fig_dir = fig_root / design_id
-            fig_dir.mkdir(parents=True, exist_ok=True)
 
             nl = None
             tq = None
             fl = None
             try:
-                # ---- Build ----
+                # ---- Build (tiho) ----
                 t0 = time.time()
                 build_motor(design, fem_built,
                             open_femm=(not femm_opened), close_femm=False,
                             kill_existing=not args.no_kill_femm)
                 femm_opened = True
-                print(f"  build: {time.time()-t0:.1f}s")
+                build_dt = time.time() - t0
+
+                # ---- Mesh proba ----
+                # Prvi mi_analyze je tisti, ki pri nezmrežljivi geometriji vrže
+                # napako ('Material properties have not been defined for all
+                # regions'). Če uspe, je model zmrežljiv in simulacija se uspešno
+                # izvaja → ŠELE TU izpišemo model in njegove parametre. Tako se
+                # v konzoli pojavijo izključno uspešni modeli.
+                femm.mi_analyze()
+                femm.mi_loadsolution()
+
+                if not header_printed:
+                    print(header_line)
+                    header_printed = True
+                for ln in attempt_lines:
+                    print(ln)
+                print(f"  build: {build_dt:.1f}s")
+                fig_dir.mkdir(parents=True, exist_ok=True)
 
                 # ---- No-load ----
                 if not args.skip_noload:
@@ -311,13 +340,11 @@ def main(argv=None) -> int:
                 last_err = f"{type(e).__name__}: {e}"
                 # POZOR: to NI napaka programa. Stroji na robu Pareto fronte
                 # (npr. ekstremen max_eta z velikim D_r) jih FEMM ne zmreži;
-                # skript je zasnovan tako, da samodejno nadaljuje z najbližjo
-                # zmrežljivo alternativo s Pareto fronte. Zato to izpišemo kot
-                # običajen informativen korak (stdout), NE kot napako. Pravo
-                # odpoved (če spodletijo VSE alternative) poročamo šele na koncu.
-                print(f"  [info] {design_id}: poskus {attempt} (Pareto idx "
-                      f"{pareto_idx}) ni zmrežljiv — nadaljujem z naslednjo "
-                      f"rešitvijo s Pareto fronte ...")
+                # skript samodejno nadaljuje z najbližjo zmrežljivo alternativo
+                # s Pareto fronte. Ker je bila napaka ujeta še na mesh probi
+                # (PRED izpisom glave/parametrov), o tem poskusu v konzoli ne
+                # izpišemo NIČESAR. Pravo odpoved (če spodletijo VSE alternative)
+                # poročamo šele na koncu (stderr).
                 # FEMM stanje je verjetno pokvarjeno → zaprimo, ponovno odpremo.
                 try:
                     femm.closefemm()
