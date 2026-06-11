@@ -29,8 +29,6 @@ if %ERRORLEVEL% neq 0 goto :error
 
 echo.
 echo [2/3] Faze 3+4 - FEMM simulacije (prosti tek + navor), lahko traja ~18 min...
-echo       Opomba: morebitne vrstice "[info] ... ni zmrezljiv" so NORMALNE -
-echo       skript samodejno uporabi najblizjo zmrezljivo resitev s Pareto fronte.
 %PY% -m src.run_femm_pareto --step 5
 if %ERRORLEVEL% neq 0 goto :error
 
